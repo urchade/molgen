@@ -35,6 +35,8 @@ Chem.Draw.MolsToGridImage(mol_list, molsPerRow=4, subImgSize=(250, 250), maxMols
 
 ```
 
+![alt text](generated.JPG)
+
 ## Reference:
 ```bibtex
 @inproceedings{dAutume2019TrainingLG,
