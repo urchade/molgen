@@ -20,7 +20,7 @@ class Tokenizer(object):
 
         self.vocab_size = len(self.mapping.keys())
 
-    def tokenize_for_discriminator(self, mol, add_eos=True):
+    def encode_smile(self, mol, add_eos=True):
 
         out = [self.mapping[i] for i in mol]
 
@@ -31,18 +31,6 @@ class Tokenizer(object):
 
     def batch_tokenize(self, batch):
 
-        out = map(lambda x: self.tokenize_for_discriminator(x), batch)
+        out = map(lambda x: self.encode_smile(x), batch)
 
         return torch.nn.utils.rnn.pad_sequence(list(out), batch_first=True)
-
-if __name__ == '__main__':
-
-    data = []
-
-    with open('qm9.csv', "r") as f:
-        for line in f.readlines()[1:]:
-            data.append(line.split(",")[1])
-
-    tokenizer = Tokenizer(data)
-
-    print(tokenizer.mapping)

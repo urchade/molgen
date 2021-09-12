@@ -1,6 +1,7 @@
 import torch
 from allennlp.modules.feedforward import FeedForward
-from allennlp.modules.seq2seq_encoders import LstmSeq2SeqEncoder, PytorchTransformer
+from allennlp.modules.seq2seq_encoders import (LstmSeq2SeqEncoder,
+                                               PytorchTransformer)
 from torch import nn
 from torch.distributions import Categorical
 from torch.nn.modules.activation import Sigmoid
@@ -27,21 +28,34 @@ class Generator(nn.Module):
 
         self.embedding_layer = nn.Embedding(self.vocab_size, latent_dim)
 
-        self.project = nn.Linear(latent_dim, latent_dim * 2)
+        self.project = FeedForward(
+            input_dim=latent_dim,
+            num_layers=2,
+            hidden_dims=[latent_dim * 2, latent_dim * 2],
+            activations=[nn.ReLU(), nn.ELU(alpha=0.1)],
+            dropout=[0.1, 0.1]
+        )
 
         self.rnn = nn.LSTMCell(latent_dim, latent_dim)
 
-        self.output_layer = nn.Linear(latent_dim, vocab_size - 1)
+        self.output_layer = nn.Sequential(
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(latent_dim, latent_dim * 2),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(latent_dim * 2, vocab_size - 1)
+        )
 
     def forward(self, z, max_len=20):
         """[summary]
 
         Args:
-            z ([type]): [description]
+            z (torch.Tensor): [description]
             max_len (int, optional): [description]. Defaults to 20.
 
         Returns:
-            [type]: [description]
+            dict: x [B, max_len], log_probabilities [B, max_len, vocab], entropies [B,]
         """
 
         batch_size = z.shape[0]
@@ -140,7 +154,12 @@ class RecurrentDiscriminator(nn.Module):
             hidden_size = hidden_size * 2
 
         self.fc = nn.Sequential(
-            nn.Linear(hidden_size, 1),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_size, hidden_size * 2),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_size * 2, 1),
             nn.Sigmoid()
         )
 
@@ -168,12 +187,13 @@ class RecurrentDiscriminator(nn.Module):
         emb = self.embedding(x)
 
         # contextualize representation
-        x = self.rnn(emb, mask)  
+        x = self.rnn(emb, mask)
 
         # prediction for each sequence
         out = self.fc(x).squeeze(-1)  # [B, max_len]
 
         return {'out': out[:, 1:], 'mask': mask.float()[:, 1:]}
+
 
 class TransformerDiscriminator(nn.Module):
 
@@ -192,12 +212,12 @@ class TransformerDiscriminator(nn.Module):
         self.embedding = nn.Embedding(vocab_size, hidden_size, padding_idx=0)
 
         self.transformer = PytorchTransformer(
-            hidden_size, 
+            hidden_size,
             num_layers=num_layers,
-            num_attention_heads=num_attention_heads, 
+            num_attention_heads=num_attention_heads,
             positional_encoding='embedding',
             positional_embedding_size=40
-            )
+        )
 
         self.fc = nn.Sequential(
             nn.Linear(hidden_size, 1),
@@ -232,19 +252,3 @@ class TransformerDiscriminator(nn.Module):
         out = self.fc(x).squeeze(-1)  # [B, max_len]
 
         return {'out': out[:, 1:], 'mask': mask.float()[:, 1:]}
-
-
-if __name__ == '__main__':
-
-    from pytorch_lightning.utilities.seed import seed_everything
-
-    seed_everything(89)
-
-    gen = Generator(64, 100, 0, 1)
-    disc = RecurrentDiscriminator(64, 101)
-
-    z = torch.randn((3, 64))
-
-    out_gen = gen.forward(z, 100)['x']
-
-    print(disc.forward(out_gen))
