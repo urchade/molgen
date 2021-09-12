@@ -51,12 +51,30 @@ class MolGen(nn.Module):
         self.discriminator_optim = torch.optim.Adam(
             self.discriminator.parameters(), lr=lr)
 
-        self.b = 0.
+        self.b = 0.  # baseline reward
 
     def sample_latent(self, batch_size):
+        """Sample from latent space
+
+        Args:
+            batch_size (int): number of samples
+
+        Returns:
+            torch.Tensor: [batch_size, self.hidden_dim]
+        """
         return torch.randn(batch_size, self.hidden_dim).to(self.device)
 
     def discriminator_loss(self, x, y):
+        """Discriminator loss
+
+        Args:
+            x (torch.LongTensor): input sequence [batch_size, max_len]
+            y (torch.LongTensor): sequence label (zeros from generatoe, ones from real data)
+                                  [batch_size, max_len]
+
+        Returns:
+            loss value
+        """
 
         y_pred, mask = self.discriminator(x).values()
 
@@ -68,13 +86,10 @@ class MolGen(nn.Module):
         return loss
 
     def train_step(self, x):
-        """[summary]
+        """One training step
 
         Args:
-            x ([type]): [description]
-
-        Returns:
-            [type]: [description]
+            x (torch.LongTensor): sample form real distribution
         """
 
         batch_size, len_real = x.size()
@@ -123,7 +138,7 @@ class MolGen(nn.Module):
         # prediction for generated x
         y_pred, y_pred_mask = self.discriminator(x_gen).values()
 
-        # Reward
+        # Reward (see the ref paper)
         R = (2 * y_pred - 1)
 
         # reward len for each sequence
@@ -136,6 +151,7 @@ class MolGen(nn.Module):
         generator_loss = []
         for reward, log_p in zip(list_rewards, log_probs):
 
+            # substract the baseline
             reward_baseline = reward - self.b
 
             generator_loss.append((- reward_baseline * log_p).sum())
@@ -158,6 +174,17 @@ class MolGen(nn.Module):
         return {'loss_disc': discr_loss.item(), 'mean_reward': mean_reward}
 
     def create_dataloader(self, data, batch_size=128, shuffle=True, num_workers=5):
+        """create a dataloader
+
+        Args:
+            data (list[str]): list of molecule smiles
+            batch_size (int, optional): Defaults to 128.
+            shuffle (bool, optional): Defaults to True.
+            num_workers (int, optional): Defaults to 5.
+
+        Returns:
+            torch.data.DataLoader: a torch dataloader
+        """
 
         return DataLoader(
             data,
@@ -168,6 +195,13 @@ class MolGen(nn.Module):
         )
 
     def train_n_steps(self, train_loader, max_step=10000, evaluate_every=50):
+        """Train for max_step steps
+
+        Args:
+            train_loader (torch.data.DataLoader): dataloader
+            max_step (int, optional): Defaults to 10000.
+            evaluate_every (int, optional): Defaults to 50.
+        """
 
         iter_loader = iter(train_loader)
 
@@ -198,9 +232,45 @@ class MolGen(nn.Module):
                 print(f'valid = {score: .2f}')
 
     def get_mapped(self, seq):
+        """Transform a sequence of ids to string
+
+        Args:
+            seq (list[int]): sequence of ids
+
+        Returns:
+            str: string output
+        """
         return ''.join([self.tokenizer.inv_mapping[i] for i in seq])
 
+    @torch.no_grad()
+    def generate_n(self, n):
+        """Generate n molecules
+
+        Args:
+            n (int)
+
+        Returns:
+            list[str]: generated molecules
+        """
+
+        z = torch.randn((n, self.hidden_dim)).cuda()
+
+        x = self.generator(z)['x'].cpu()
+
+        lenghts = (x > 0).sum(1)
+
+        # l - 1 because we exclude end tokens
+        return [self.get_mapped(x[:l-1].numpy()) for x, l in zip(x, lenghts)]
+
     def evaluate_n(self, n):
+        """Evaluation: frequence of valid molecules using rdkit
+
+        Args:
+            n (int): number of sample
+
+        Returns:
+            float: requence of valid molecules
+        """
 
         pack = self.generate_n(n)
 
@@ -209,17 +279,3 @@ class MolGen(nn.Module):
         valid = np.array([Chem.MolFromSmiles(k) is not None for k in pack])
 
         return valid.mean()
-
-    @torch.no_grad()
-    def generate_n(self, n):
-
-        z = torch.randn((n, self.hidden_dim)).cuda()
-
-        x = self.generator(z)['x'].cpu()
-
-        lenghts = (x > 0).sum(1)
-
-        return [self.get_mapped(x[:l-1].numpy()) for x, l in zip(x, lenghts)]
-
-    # def save_best(self, path='saves/model.pt'):
-    #     torch.save(self.state_dict(), path)
