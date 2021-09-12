@@ -171,7 +171,7 @@ class MolGen(nn.Module):
 
         iter_loader = iter(train_loader)
 
-        best_score = 0.0
+        # best_score = 0.0
 
         for step in range(max_step):
 
@@ -190,10 +190,10 @@ class MolGen(nn.Module):
                 score = self.evaluate_n(100)
                 self.train()
 
-                if score > best_score:
-                    self.save_best()
-                    print('saving')
-                    best_score = score
+                # if score > best_score:
+                #     self.save_best()
+                #     print('saving')
+                #     best_score = score
 
                 print(f'valid = {score: .2f}')
 
@@ -221,20 +221,5 @@ class MolGen(nn.Module):
 
         return [self.get_mapped(x[:l-1].numpy()) for x, l in zip(x, lenghts)]
 
-    def save_best(self, path='saves/model.pth'):
-        torch.save(self, path)
-
-
-if __name__ == '__main__':
-
-    data = []
-
-    with open('qm9.csv', "r") as f:
-        for line in f.readlines()[1:]:
-            data.append(line.split(",")[1])
-
-    model = MolGen(data, device="cuda")
-
-    loader = model.create_dataloader(data)
-
-    model.train_n_steps(loader, 10000)
+    # def save_best(self, path='saves/model.pt'):
+    #     torch.save(self.state_dict(), path)
