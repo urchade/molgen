@@ -12,8 +12,6 @@ with open('qm9.csv', "r") as f:
     for line in f.readlines()[1:]:
         data.append(line.split(",")[1])
 
-
-
 # create model
 gan_mol = MolGen(data, hidden_dim=128, lr=1e-3, device="cuda")
 
