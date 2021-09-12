@@ -2,3 +2,6 @@
 /.vscode
 /__pycache__
 saves/model.pth
+saves/model-Copy1.pth
+saves/model.pt
+saves
