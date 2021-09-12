@@ -6,7 +6,7 @@ from torch import nn
 from torch.nn.utils import clip_grad_value_
 from torch.utils.data import DataLoader
 
-from layers import Generator, RecurrentDiscriminator, TransformerDiscriminator
+from layers import Generator, RecurrentDiscriminator
 from tokenizer import Tokenizer
 
 RDLogger.DisableLog('rdApp.*')
@@ -253,7 +253,7 @@ class MolGen(nn.Module):
             list[str]: generated molecules
         """
 
-        z = torch.randn((n, self.hidden_dim)).cuda()
+        z = torch.randn((n, self.hidden_dim)).to(self.device)
 
         x = self.generator(z)['x'].cpu()
 
