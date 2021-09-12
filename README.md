@@ -36,9 +36,11 @@ Chem.Draw.MolsToGridImage(mol_list, molsPerRow=4, subImgSize=(250, 250), maxMols
 ```
 
 ## Reference:
+```bibtex
 @inproceedings{dAutume2019TrainingLG,
   title={Training language GANs from Scratch},
   author={Cyprien de Masson d'Autume and Mihaela Rosca and Jack W. Rae and S. Mohamed},
   booktitle={NeurIPS},
   year={2019}
 }
+```
